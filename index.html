@@ -81,7 +81,7 @@
     <div class="nav-label">WORKSPACE</div>
     <button class="nav-btn active" data-page="overview"><span class="nav-icon">▦</span><span class="nav-text">Management Overview</span></button>
     <button class="nav-btn" data-page="operations"><span class="nav-icon">◫</span><span class="nav-text">Operations Analysis</span></button>
-    <button class="nav-btn" data-page="exceptions"><span class="nav-icon">⚑</span><span class="nav-text">Exception Monitoring</span></button>
+    <button class="nav-btn" data-page="vendor"><span class="nav-icon">★</span><span class="nav-text">3PL Vendor Evaluation</span></button>
     <div class="side-foot">LOGISTICS CONTROL CENTER<br>Data connection: Apps Script API</div>
   </aside>
 
@@ -100,6 +100,7 @@
       <div class="filter-actions"><button class="btn" id="resetBtn">Reset</button></div>
     </section>
 
+    <!-- Tab 1: Overview -->
     <section class="page active" id="overview">
       <div class="grid kpis" id="overviewKpis"></div>
       <div class="grid charts">
@@ -112,169 +113,50 @@
       </div>
     </section>
 
+    <!-- Tab 2: Operations & Cost Analysis -->
     <section class="page" id="operations">
       <div class="grid kpis" id="operationsKpis"></div>
       <div class="grid charts equal">
-        <div class="card"><div class="card-head"><div><div class="card-title">3PL Performance</div><div class="card-sub">Average leadtime by carrier</div></div></div><div class="chart-wrap"><canvas id="leadChart"></canvas></div></div>
-        <div class="card"><div class="card-head"><div><div class="card-title">Shipping Cost per KG</div><div class="card-sub">Cost efficiency by carrier</div></div></div><div class="chart-wrap"><canvas id="kgChart"></canvas></div></div>
+        <div class="card"><div class="card-head"><div><div class="card-title">Shipping Cost by Customer</div><div class="card-sub">Top transportation cost per client (VND)</div></div><span class="pill">Financial</span></div><div class="chart-wrap"><canvas id="customerCostChart"></canvas></div></div>
+        <div class="card"><div class="card-head"><div><div class="card-title">Monthly Shipping Cost Trend</div><div class="card-sub">Total shipping expenses incurred by month</div></div><span class="pill">Trend</span></div><div class="chart-wrap"><canvas id="monthlyCostChart"></canvas></div></div>
       </div>
-      <!-- Biểu đồ chi phí mới thêm vào tab Operations -->
-      <div class="grid charts" style="grid-template-columns: 1fr; margin-bottom: 14px;">
-        <div class="card"><div class="card-head"><div><div class="card-title">Monthly Shipping Cost Trend</div><div class="card-sub">Total shipping expenses incurred by month (VND)</div></div><span class="pill">Financial</span></div><div class="chart-wrap"><canvas id="monthlyCostChart"></canvas></div></div>
+      <div class="grid charts equal" style="margin-top:14px">
+        <div class="card"><div class="card-head"><div><div class="card-title">3PL Average Leadtime</div><div class="card-sub">Days per carrier</div></div></div><div class="chart-wrap short"><canvas id="leadChart"></canvas></div></div>
+        <div class="card"><div class="card-head"><div><div class="card-title">Shipping Cost per KG</div><div class="card-sub">Cost efficiency by carrier</div></div></div><div class="chart-wrap short"><canvas id="kgChart"></canvas></div></div>
       </div>
-      <div class="card table-card"><div class="table-head"><div><div class="card-title">Route Performance</div><div class="card-sub">Origin – Destination breakdown</div></div></div><div class="table-scroll"><table><thead><tr><th>Route</th><th>3PL</th><th>Shipments</th><th>Avg Leadtime</th><th>SLA Compliance</th><th>Total Cost</th></tr></thead><tbody id="routeTable"></tbody></table></div></div>
+      <div class="card table-card" style="margin-top:14px"><div class="table-head"><div><div class="card-title">Route Performance</div><div class="card-sub">Origin – Destination breakdown</div></div></div><div class="table-scroll"><table><thead><tr><th>Route</th><th>3PL</th><th>Shipments</th><th>Avg Leadtime</th><th>SLA Compliance</th><th>Total Cost</th></tr></thead><tbody id="routeTable"></tbody></table></div></div>
     </section>
 
-    <section class="page" id="exceptions">
-      <div class="grid kpis" id="exceptionKpis"></div>
-      <div class="card table-card"><div class="table-head"><div><div class="card-title">Shipment Exceptions</div><div class="card-sub">Late shipments and incomplete master data</div></div><span class="pill" id="exceptionCount">0 records</span></div><div class="table-scroll"><table><thead><tr><th>Shipping Code</th><th>3PL</th><th>Customer</th><th>Route</th><th>Leadtime</th><th>SLA</th><th>Delay Days</th><th>Cost</th><th>Status</th></tr></thead><tbody id="exceptionTable"></tbody></table></div></div>
+    <!-- Tab 3: 3PL Vendor Evaluation -->
+    <section class="page" id="vendor">
+      <div class="grid kpis" id="vendorKpis"></div>
+      <div class="card table-card">
+        <div class="table-head">
+          <div><div class="card-title">3PL Vendor Scorecard & Evaluation</div><div class="card-sub">Comprehensive performance review by carrier partner</div></div>
+          <span class="pill">Vendor Review</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>3PL Vendor</th>
+                <th>Total Shipments</th>
+                <th>SLA Compliance Rate</th>
+                <th>Avg Leadtime</th>
+                <th>Total Cost (VND)</th>
+                <th>Cost / KG (VND)</th>
+                <th>Performance Status</th>
+              </tr>
+            </thead>
+            <tbody id="vendorTable"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
+
     <p class="note">Connected live to Google Sheets via Apps Script Web App API.</p>
   </main>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyT3UqhABhBZY6SlrYezaDTiUmgBpTbK4vNRQLeSiNqfzzHnziauXj2B6WEc06HfTLnpg/exec";
-
-let allData = [], filteredData = [], charts = {};
-
-const fmt = n => new Intl.NumberFormat("vi-VN").format(Math.round(Number(n)||0));
-const avg = arr => arr.length ? arr.reduce((a,b)=>a+(Number(b)||0),0)/arr.length : 0;
-const sum = (arr,key) => arr.reduce((a,r)=>a+(Number(r[key])||0),0);
-const pct = n => (n*100).toFixed(1)+"%";
-const unique = key => [...new Set(allData.map(r=>r[key]).filter(v=>v!==""&&v!=null))].sort();
-
-function fillSelect(id,values){
-  const el=document.getElementById(id);
-  el.innerHTML=el.options[0].outerHTML;
-  values.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;el.appendChild(o);});
-}
-
-function initFilters(){
-  fillSelect("yearFilter",unique("year"));
-  fillSelect("monthFilter",unique("month"));
-  fillSelect("plFilter",unique("pl"));
-  fillSelect("serviceFilter",unique("service"));
-  ["yearFilter","monthFilter","plFilter","serviceFilter","statusFilter"].forEach(id=>{
-    const el = document.getElementById(id);
-    el.removeEventListener("change",applyFilters);
-    el.addEventListener("change",applyFilters);
-  });
-}
-
-function applyFilters(){
-  const v=id=>document.getElementById(id).value;
-  filteredData=allData.filter(r=>(!v("yearFilter")||String(r.year)===v("yearFilter"))&&(!v("monthFilter")||String(r.month)===v("monthFilter"))&&(!v("plFilter")||r.pl===v("plFilter"))&&(!v("serviceFilter")||r.service===v("serviceFilter"))&&(!v("statusFilter")||r.status===v("statusFilter")));
-  render();
-}
-
-function kpiCard(label,value,note,icon="▦"){
-  return `<div class="card"><div class="kpi-top"><span class="kpi-label">${label}</span><span class="kpi-icon">${icon}</span></div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></div>`;
-}
-
-function setKpis(id,items){document.getElementById(id).innerHTML=items.join("");}
-
-function chart(id,type,labels,datasets,extra={}){
-  if(charts[id])charts[id].destroy();
-  const ctx=document.getElementById(id);if(!ctx)return;
-  charts[id]=new Chart(ctx,{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{boxWidth:9,usePointStyle:true,font:{size:10}}}},scales:type==="doughnut"?{}:{y:{beginAtZero:true,grid:{color:"#eef1f6"},ticks:{font:{size:10}}},x:{grid:{display:false},ticks:{font:{size:10}}}},...extra}});
-}
-
-function groupBy(data,key){return data.reduce((o,r)=>{const k=r[key]??"Unknown";(o[k]??=[]).push(r);return o;},{});}
-
-function render(){
-  const d=filteredData,total=d.length,good=d.filter(r=>r.status==="Good").length,on=d.filter(r=>r.status==="On Time").length,late=d.filter(r=>r.status==="Late").length;
-  const compliant=total?(good+on)/total:0,cost=sum(d,"cost"),weight=sum(d,"weight");
-  
-  setKpis("overviewKpis",[
-    kpiCard("Total Shipments",fmt(total),"Filtered shipments","▤"),
-    kpiCard("SLA Compliance",pct(compliant),"Good + On Time","✓"),
-    kpiCard("Late Rate",pct(total?late/total:0),"Late shipments","!"),
-    kpiCard("Average Leadtime",avg(d.map(r=>r.leadtime)).toFixed(1)+" days","Calendar-adjusted leadtime","◷"),
-    kpiCard("Total Shipping Cost",fmt(cost)+" ₫","Total recorded cost","₫"),
-    kpiCard("Cost / Shipment",fmt(total?cost/total:0)+" ₫","Average recorded cost","↗"),
-    kpiCard("Total Shipping Weight",fmt(weight)+" kg","Sum of recorded weight","⚖"),
-    kpiCard("Cost / KG",fmt(weight?cost/weight:0)+" ₫","Cost divided by weight","◎")
-  ]);
-
-  const months=groupBy(d,"month"),ml=Object.keys(months).sort((a,b)=>Number(a)-Number(b));
-  chart("monthlyChart","bar",ml.map(m=>"Month "+m),[{label:"Shipments",data:ml.map(m=>months[m].length),backgroundColor:"#4778f5",borderRadius:5}]);
-  chart("statusChart","doughnut",["Good","On Time","Late"],[{data:[good,on,late],backgroundColor:["#19a66f","#4778f5","#e34d59"],borderWidth:0}]);
-  
-  const pls=groupBy(d,"pl"),plNames=Object.keys(pls);
-  chart("costChart","bar",plNames,[{label:"Shipping Cost (VND)",data:plNames.map(p=>sum(pls[p],"cost")),backgroundColor:"#4778f5",borderRadius:5}]);
-  chart("slaChart","bar",plNames,[{label:"SLA Compliance (%)",data:plNames.map(p=>{const a=pls[p];return a.length?100*a.filter(x=>x.status==="Good"||x.status==="On Time").length/a.length:0;}),backgroundColor:"#19a66f",borderRadius:5}],{scales:{y:{beginAtZero:true,max:100}}});
-
-  setKpis("operationsKpis",[
-    kpiCard("3PL Count",fmt(plNames.length),"Active carriers","▣"),
-    kpiCard("Average SLA",avg(d.map(r=>r.slaDays)).toFixed(1)+" days","Average target","◎"),
-    kpiCard("Average Cost / KG",fmt(weight?cost/weight:0)+" ₫","Cost efficiency","₫"),
-    kpiCard("Average Delay",avg(d.filter(r=>r.status==="Late").map(r=>Math.max(0,r.leadtime-r.slaDays))).toFixed(1)+" days","Late shipments only","◷")
-  ]);
-
-  chart("leadChart","bar",plNames,[{label:"Average Leadtime (days)",data:plNames.map(p=>avg(pls[p].map(x=>x.leadtime))),backgroundColor:"#4778f5",borderRadius:5}]);
-  chart("kgChart","bar",plNames,[{label:"Cost / KG (VND)",data:plNames.map(p=>{const a=pls[p];return sum(a,"weight")?sum(a,"cost")/sum(a,"weight"):0;}),backgroundColor:"#d99a32",borderRadius:5}]);
-  
-  // Render biểu đồ xu hướng chi phí theo tháng mới thêm
-  chart("monthlyCostChart","line",ml.map(m=>"Month "+m),[{label:"Total Cost (VND)",data:ml.map(m=>sum(months[m],"cost")),borderColor:"#16a36a",backgroundColor:"rgba(22,163,106,.1)",fill:true,tension:.3}],{scales:{y:{beginAtZero:true,ticks:{callback:value=>fmt(value)+" ₫"}}}});
-
-  const routes=groupBy(d,r=>r.origin+" → "+r.destination);
-  document.getElementById("routeTable").innerHTML=Object.entries(routes).map(([route,a])=>`<tr><td>${route}</td><td>${[...new Set(a.map(x=>x.pl))].join(", ")}</td><td>${a.length}</td><td>${avg(a.map(x=>x.leadtime)).toFixed(1)}</td><td>${pct(a.filter(x=>x.status!=="Late").length/a.length)}</td><td>${fmt(sum(a,"cost"))} ₫</td></tr>`).join("")||'<tr><td colspan="6" class="empty">No data</td></tr>';
-
-  const missingSla=d.filter(r=>!Number(r.slaDays)),missingCost=d.filter(r=>r.cost==null||r.cost==="");
-  setKpis("exceptionKpis",[
-    kpiCard("Late Shipments",fmt(late),"Require review","!"),
-    kpiCard("Total Delay Days",fmt(sum(d.filter(r=>r.status==="Late").map(r=>({delay:Math.max(0,r.leadtime-r.slaDays)})),"delay")),"Accumulated delay","◷"),
-    kpiCard("Missing SLA",fmt(missingSla.length),"Unmapped SLA records","?"),
-    kpiCard("Missing Cost",fmt(missingCost.length),"Incomplete cost records","₫")
-  ]);
-
-  const ex=d.filter(r=>r.status==="Late"||!Number(r.slaDays)||r.cost==null||r.cost==="");
-  document.getElementById("exceptionCount").textContent=ex.length+" records";
-  document.getElementById("exceptionTable").innerHTML=ex.map(r=>`<tr><td>${r.shippingCode||"—"}</td><td>${r.pl||"—"}</td><td>${r.customerName||"—"}</td><td>${r.origin||"—"} → ${r.destination||"—"}</td><td>${r.leadtime??"—"}</td><td>${r.slaDays??"—"}</td><td>${Math.max(0,(Number(r.leadtime)||0)-(Number(r.slaDays)||0))}</td><td>${fmt(r.cost)} ₫</td><td><span class="status ${r.status==="Late"?"late":r.status==="Good"?"good":"ontime"}">${r.status||"Missing SLA"}</span></td></tr>`).join("")||'<tr><td colspan="9" class="empty">No exceptions found</td></tr>';
-}
-
-document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{
-  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(btn.dataset.page).classList.add("active");
-  document.getElementById("pageTitle").textContent=({overview:"Management Overview",operations:"Operations Analysis",exceptions:"Exception Monitoring"})[btn.dataset.page];
-}));
-
-document.getElementById("resetBtn").addEventListener("click",()=>{
-  ["yearFilter","monthFilter","plFilter","serviceFilter","statusFilter"].forEach(id=>document.getElementById(id).value="");
-  applyFilters();
-});
-
-document.getElementById("refreshBtn").addEventListener("click", loadDashboardData);
-
-document.getElementById("exportBtn").addEventListener("click",()=>{
-  const headers=["3PL","Month","Shipping Code","Customer","Service","Origin","Destination","Leadtime","SLA Days","Status","Weight","Cost"];
-  const rows=filteredData.map(r=>[r.pl,r.month,r.shippingCode,r.customerName,r.service,r.origin,r.destination,r.leadtime,r.slaDays,r.status,r.weight,r.cost]);
-  const csv=[headers,...rows].map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\n");
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8;"}));a.download="logistics-dashboard-export.csv";a.click();URL.revokeObjectURL(a.href);
-});
-
-function loadDashboardData(){
-  document.getElementById("dataStatus").textContent = "CONNECTING...";
-  
-  fetch(WEB_APP_URL, { redirect: "follow" })
-    .then(response => {
-      if (!response.ok) throw new Error("Network response was not ok");
-      return response.json();
-    })
-    .then(data => {
-      allData = data; 
-      document.getElementById("dataStatus").textContent = "LIVE DATA";
-      initFilters();  
-      applyFilters(); 
-    })
-    .catch(error => {
-      document.getElementById("dataStatus").textContent = "CONNECTION ERROR";
-      console.error("Lỗi kết nối API:", error);
-    });
-}
-
-loadDashboardData();
-</script>
-</body>
-</html>
+const WEB_APP_URL = "
