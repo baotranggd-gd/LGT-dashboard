@@ -36,7 +36,7 @@
     .btn{border:1px solid var(--line);background:#fff;color:#34405a;border-radius:9px;padding:9px 13px;cursor:pointer}
     .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
     .btn:hover{filter:brightness(.98)}
-    .filters{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr)) auto;gap:10px;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);margin-bottom:18px}
+    .filters{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr)) auto;gap:10px;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);margin-bottom:18px}
     .filter label{display:block;font-size:10px;color:var(--muted);font-weight:700;margin:0 0 5px 2px}
     select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:#fff;color:#34405a;outline:none}
     .filter-actions{display:flex;align-items:end;gap:7px}
@@ -70,8 +70,7 @@
     .page{display:none}.page.active{display:block}
     .empty{padding:35px;text-align:center;color:var(--muted)}
     .note{margin:12px 0 0;color:var(--muted);font-size:10px}
-    @media(max-width:1100px){.filters{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:760px){aside{width:62px;padding:18px 8px}.brand{padding:0 5px 24px}.brand-copy,.nav-label,.nav-text,.side-foot{display:none}.nav-btn{justify-content:center;padding:12px 5px}.nav-icon{font-size:18px}main{padding:20px 14px}.topbar{align-items:flex-start}.top-actions{flex-wrap:wrap}.filters{grid-template-columns:repeat(2,1fr)}.charts,.charts.equal{grid-template-columns:1fr}}
+    @media(max-width:1200px){.filters{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
 <body>
@@ -91,10 +90,12 @@
       <div class="top-actions"><span class="pill" id="dataStatus">CONNECTING...</span><button class="btn" id="refreshBtn">↻ Refresh</button><button class="btn primary" id="exportBtn">↓ Export CSV</button></div>
     </div>
 
+    <!-- Thanh bộ lọc toàn cục đã bổ sung Customer Filter -->
     <section class="filters">
       <div class="filter"><label>YEAR</label><select id="yearFilter"><option value="">All years</option></select></div>
       <div class="filter"><label>MONTH</label><select id="monthFilter"><option value="">All months</option></select></div>
       <div class="filter"><label>3PL</label><select id="plFilter"><option value="">All 3PL</option></select></div>
+      <div class="filter"><label>CUSTOMER</label><select id="customerFilter"><option value="">All customers</option></select></div>
       <div class="filter"><label>SERVICE</label><select id="serviceFilter"><option value="">All services</option></select></div>
       <div class="filter"><label>STATUS</label><select id="statusFilter"><option value="">All statuses</option><option>Good</option><option>On Time</option><option>Late</option></select></div>
       <div class="filter-actions"><button class="btn" id="resetBtn">Reset</button></div>
@@ -117,7 +118,7 @@
     <section class="page" id="operations">
       <div class="grid kpis" id="operationsKpis"></div>
       <div class="grid charts equal">
-        <div class="card"><div class="card-head"><div><div class="card-title">Shipping Cost by Customer</div><div class="card-sub">Top transportation cost per client (VND)</div></div><span class="pill">Financial</span></div><div class="chart-wrap"><canvas id="customerCostChart"></canvas></div></div>
+        <div class="card"><div class="card-head"><div><div class="card-title">Customer Cost Share (%)</div><div class="card-sub">Cost distribution proportion by client</div></div><span class="pill">Financial Share</span></div><div class="chart-wrap"><canvas id="customerCostShareChart"></canvas></div></div>
         <div class="card"><div class="card-head"><div><div class="card-title">Monthly Shipping Cost Trend</div><div class="card-sub">Total shipping expenses incurred by month</div></div><span class="pill">Trend</span></div><div class="chart-wrap"><canvas id="monthlyCostChart"></canvas></div></div>
       </div>
       <div class="grid charts equal" style="margin-top:14px">
@@ -179,8 +180,9 @@ function initFilters(){
   fillSelect("yearFilter",unique("year"));
   fillSelect("monthFilter",unique("month"));
   fillSelect("plFilter",unique("pl"));
+  fillSelect("customerFilter",unique("customerName"));
   fillSelect("serviceFilter",unique("service"));
-  ["yearFilter","monthFilter","plFilter","serviceFilter","statusFilter"].forEach(id=>{
+  ["yearFilter","monthFilter","plFilter","customerFilter","serviceFilter","statusFilter"].forEach(id=>{
     const el = document.getElementById(id);
     el.removeEventListener("change",applyFilters);
     el.addEventListener("change",applyFilters);
@@ -189,7 +191,7 @@ function initFilters(){
 
 function applyFilters(){
   const v=id=>document.getElementById(id).value;
-  filteredData=allData.filter(r=>(!v("yearFilter")||String(r.year)===v("yearFilter"))&&(!v("monthFilter")||String(r.month)===v("monthFilter"))&&(!v("plFilter")||r.pl===v("plFilter"))&&(!v("serviceFilter")||r.service===v("serviceFilter"))&&(!v("statusFilter")||r.status===v("statusFilter")));
+  filteredData=allData.filter(r=>(!v("yearFilter")||String(r.year)===v("yearFilter"))&&(!v("monthFilter")||String(r.month)===v("monthFilter"))&&(!v("plFilter")||r.pl===v("plFilter"))&&(!v("customerFilter")||r.customerName===v("customerFilter"))&&(!v("serviceFilter")||r.service===v("serviceFilter"))&&(!v("statusFilter")||r.status===v("statusFilter")));
   render();
 }
 
@@ -211,7 +213,6 @@ function render(){
   const d=filteredData,total=d.length,good=d.filter(r=>r.status==="Good").length,on=d.filter(r=>r.status==="On Time").length,late=d.filter(r=>r.status==="Late").length;
   const compliant=total?(good+on)/total:0,cost=sum(d,"cost"),weight=sum(d,"weight");
   
-  // Overview KPIs
   setKpis("overviewKpis",[
     kpiCard("Total Shipments",fmt(total),"Filtered shipments","▤"),
     kpiCard("SLA Compliance",pct(compliant),"Good + On Time","✓"),
@@ -231,7 +232,6 @@ function render(){
   chart("costChart","bar",plNames,[{label:"Shipping Cost (VND)",data:plNames.map(p=>sum(pls[p],"cost")),backgroundColor:"#4778f5",borderRadius:5}]);
   chart("slaChart","bar",plNames,[{label:"SLA Compliance (%)",data:plNames.map(p=>{const a=pls[p];return a.length?100*a.filter(x=>x.status==="Good"||x.status==="On Time").length/a.length:0;}),backgroundColor:"#19a66f",borderRadius:5}],{scales:{y:{beginAtZero:true,max:100}}});
 
-  // Operations KPIs
   setKpis("operationsKpis",[
     kpiCard("3PL Count",fmt(plNames.length),"Active carriers","▣"),
     kpiCard("Average SLA",avg(d.map(r=>r.slaDays)).toFixed(1)+" days","Average target","◎"),
@@ -239,10 +239,19 @@ function render(){
     kpiCard("Total Cost",fmt(cost)+" ₫","Filtered shipping cost","₫")
   ]);
 
-  // Cost by Customer Chart
+  // Customer Cost Share Donut Chart
   const customers = groupBy(d,"customerName");
-  const topCustomers = Object.keys(customers).sort((a,b)=>sum(customers[b],"cost")-sum(customers[a],"cost")).slice(0,5);
-  chart("customerCostChart","bar",topCustomers,[{label:"Cost (VND)",data:topCustomers.map(c=>sum(customers[c],"cost")),backgroundColor:"#d99a32",borderRadius:5}]);
+  const custNames = Object.keys(customers).sort((a,b)=>sum(customers[b],"cost")-sum(customers[a],"cost"));
+  const topCust = custNames.slice(0, 5);
+  const otherCost = custNames.slice(5).reduce((acc, c) => acc + sum(customers[c], "cost"), 0);
+  
+  let custLabels = [...topCust];
+  let custData = topCust.map(c => sum(customers[c], "cost"));
+  if (otherCost > 0) {
+    custLabels.push("Others");
+    custData.push(otherCost);
+  }
+  chart("customerCostShareChart","doughnut",custLabels,[{data:custData,backgroundColor:["#356df3","#16a36a","#d98a18","#e34d59","#9b59b6","#95a5a6"],borderWidth:0}]);
 
   // Monthly Cost Trend Chart
   chart("monthlyCostChart","line",ml.map(m=>"Month "+m),[{label:"Total Cost (VND)",data:ml.map(m=>sum(months[m],"cost")),borderColor:"#16a36a",backgroundColor:"rgba(22,163,106,.1)",fill:true,tension:.3}],{scales:{y:{beginAtZero:true,ticks:{callback:value=>fmt(value)+" ₫"}}}});
@@ -253,7 +262,6 @@ function render(){
   const routes=groupBy(d,r=>r.origin+" → "+r.destination);
   document.getElementById("routeTable").innerHTML=Object.entries(routes).map(([route,a])=>`<tr><td>${route}</td><td>${[...new Set(a.map(x=>x.pl))].join(", ")}</td><td>${a.length}</td><td>${avg(a.map(x=>x.leadtime)).toFixed(1)}</td><td>${pct(a.filter(x=>x.status!=="Late").length/a.length)}</td><td>${fmt(sum(a,"cost"))} ₫</td></tr>`).join("")||'<tr><td colspan="6" class="empty">No data</td></tr>';
 
-  // Vendor Evaluation Tab KPIs & Table
   const avgSlaVendor = plNames.length ? avg(plNames.map(p=>{const a=pls[p];return a.length?100*a.filter(x=>x.status==="Good"||x.status==="On Time").length/a.length:0;})) : 0;
   setKpis("vendorKpis",[
     kpiCard("Active 3PL Vendors",fmt(plNames.length),"Carriers under review","▣"),
@@ -282,7 +290,7 @@ document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",
 }));
 
 document.getElementById("resetBtn").addEventListener("click",()=>{
-  ["yearFilter","monthFilter","plFilter","serviceFilter","statusFilter"].forEach(id=>document.getElementById(id).value="");
+  ["yearFilter","monthFilter","plFilter","customerFilter","serviceFilter","statusFilter"].forEach(id=>document.getElementById(id).value="");
   applyFilters();
 });
 
